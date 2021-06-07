@@ -18,17 +18,24 @@
     (let ((part (read-bytevector 4096 in)))
       (if (eof-object? part) whole (loop (bytevector-append whole part))))))
 
+(define (sha1-string string) (sha1-bytevector (string->utf8 string)))
+
 (define (sha1-file file)
   (sha1-bytevector (call-with-port (open-binary-input-file file)
                                    read-all-bytes)))
 
-(define (sha1-files files)
-  (sha1-bytevector (string->utf8 (fold string-append "" (map sha1-file files)))))
+(define (sha1-object x)
+  (sha1-string
+   (call-with-port (open-output-string)
+                   (lambda (out) (write x out) (get-output-string out)))))
 
 (define (build recipe)
   (let* ((src (map (lambda (x) (string-append "src/" x))
                    (cdr (assoc 'src recipe))))
-         (dir (string-append "store/" (sha1-files src)))
+         (dir (string-append "store/"
+                             (sha1-string (fold string-append
+                                                (sha1-object recipe)
+                                                (map sha1-file src)))))
          (dst (cadr (assoc 'dst recipe)))
          (ddd (string-append dir "/" dst))
          (bin (string-append "bin/" dst))
